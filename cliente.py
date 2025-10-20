@@ -1,10 +1,12 @@
-# cliente.py
+# cliente.py / Arquivo do cliente, onde toda a lógica dos menus é feita e a comunicação com o servidor em socket iniciada - é iniciado no local onde o cliente está
 import socket
 import sys
+# Para ocultar a senha ao digitá-la - pode ser removido depois
 import getpass
 
 client_socket = None
 
+# Função para conectar ao servidor
 def conectar_servidor():
     global client_socket
     host = input("Digite o endereco IP do servidor: ")
@@ -22,8 +24,8 @@ def conectar_servidor():
         print(f"[ERRO] Ocorreu um erro ao conectar: {e}")
         return False
 
+# Função para enviar comando ao servidor e receber resposta
 def enviar_comando_e_receber(comando):
-    """Envia um comando e espera (bloqueado) pela resposta."""
     try:
         client_socket.settimeout(None)
         client_socket.sendall(comando.encode('utf-8'))
@@ -33,6 +35,7 @@ def enviar_comando_e_receber(comando):
         print("\n[ERRO] Conexão com o servidor perdida.")
         sys.exit()
 
+# Função para verificar notificações do servidor - o alerta só aparece caso seja feito um reflesh na tela do menu
 def verificar_notificacoes():
     try:
         client_socket.settimeout(0.1)
@@ -52,18 +55,19 @@ def verificar_notificacoes():
     finally:
         client_socket.settimeout(None)
 
+# Menu após login - (adicionar espaçamento e melhorias visuais depois)
 def menu_logado(nome, num_conta):
-    print(f"\n--- Login bem-sucedido! ---")
+    print(f"\n--- Login - Entrando! ---")
     
     while True:
         verificar_notificacoes()
 
-        print(f"\n--- IFBank | Olá, {nome} (Conta: {num_conta}) ---")
+        print(f"\n--- IFBank | Olá, {nome} (Conta: {num_conta}) ---\n")
         print("1. Ver Saldo")
         print("2. Depositar")
         print("3. Sacar")
         print("4. Transferir")
-        print("5. Sair da Conta (Logout)")
+        print("\n5. Sair da Conta\n")
         
         escolha = input("Digite sua opção: ")
         
@@ -109,19 +113,22 @@ def menu_logado(nome, num_conta):
         else:
             print("[AVISO] Opção inválida, tente novamente.")
 
+# Menu principal antes do login 
 def menu_principal():
     while True:
         print("\n--- Bem-vindo ao IFBank ---")
-        print("Transferências rápidas e sem taxas. Crie sua conta!")
+        print(" Transferências rápidas e sem taxas. Crie sua conta e aproveite!\n")
         print("1. Acessar minha Conta")
         print("2. Criar nova Conta")
-        print("3. Sair do Aplicativo")
+        print("3. Sair do Aplicativo\n")
         
         escolha = input("Digite sua opção: ")
         
         if escolha == '1':
             # Acessar Conta (Login)
             cpf = input("Digite seu CPF: ")
+            #Caso queira esconder a senha ao digitar, use getpass, senão apenas troque por essa opção
+            #senha = input("Digite sua senha: ")
             senha = getpass.getpass("Digite sua senha: ")
             comando = f"LOGIN|{cpf}|{senha}"
             resposta = enviar_comando_e_receber(comando)
@@ -131,7 +138,7 @@ def menu_principal():
                     _, nome, num_conta = resposta.split('|')
                     menu_logado(nome, num_conta)
                 except ValueError:
-                    print(f"[ERRO-CLIENTE] Resposta de login inesperada: {resposta}")
+                    print(f"[ERRO] Resposta de login inesperada: {resposta}")
             else:
                 print(f"Resposta do Servidor: {resposta}")
                 
@@ -143,7 +150,7 @@ def menu_principal():
             senha_conf = getpass.getpass("Confirme sua senha: ")
             
             if senha != senha_conf:
-                print("[ERRO] As senhas não coincidem.")
+                print("[ERRO] Senha incorreta.")
                 continue
             
             comando = f"CRIAR|{nome}|{cpf}|{senha}"
@@ -151,7 +158,8 @@ def menu_principal():
             print(f"Resposta do Servidor: {resposta}")
 
         elif escolha == '3':
-            print("Obrigado por usar o IFBank. Até logo!")
+            print("\nObrigado por usar o IFBank. Até logo!")
+            print("Fechando conexão com o servidor...")
             break
         
         else:
