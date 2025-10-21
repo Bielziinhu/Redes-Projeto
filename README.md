@@ -1,4 +1,4 @@
-# Sistema Básico de Operações Financeiras (Banco # Sistema Básico de Operações Financeiras (Banco Redes)
+# Sistema Básico de Operações Financeiras (Banco Redes)
 
 Este projeto implementa um sistema bancário cliente-servidor utilizando sockets TCP em Python, conforme proposto na atividade de Redes de Computadores.
 
