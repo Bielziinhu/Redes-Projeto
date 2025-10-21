@@ -66,13 +66,19 @@ OBS: Para executar o Telnet no Windows, é necessário utilizar o software PuTTY
 **Menu Principal**
 
 **​1. Acessar minha Conta:** Requer CPF e Senha para logar.
+
 **​2. Criar nova Conta:** Inicia o processo de criação de conta (requer Nome, CPF e Senha).
+
 **​3. Sair do Aplicativo:** Encerra a conexão.
 
 **​Menu Logado**
 
 **​1. Ver Saldo:** Exibe o saldo atual da conta.
+
 **​2. Depositar:** Permite depositar um valor na própria conta.
+
 **​3. Sacar:** Permite sacar um valor da própria conta (requer confirmação de senha).
+
 **​4. Transferir:** Permite transferir um valor para outra conta (requer conta de destino, valor e confirmação de senha).
+
 **​5. Sair da Conta:** Desloga o usuário e retorna ao Menu Principal.
