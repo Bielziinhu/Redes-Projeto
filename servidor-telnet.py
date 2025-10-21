@@ -244,14 +244,49 @@ def processar_comando(comando, num_conta_logada):
             print(f"[ERRO] {e}")
             return (f"[FALHA] Erro inesperado no servidor: {e}", estado_retorno, notificacao)
 
-#Funcao de comunicação do telnet
+#Funcao de comunicação do telnet - Modificado para utilizar outro sistema telnet
 def receber_input(conn, prompt_text=""):
     try:
         conn.sendall(f"\r\n{prompt_text}> ".encode('utf-8'))
-        data = conn.recv(1024).decode('utf-8')
-        if not data:
-            return None
-        return data.strip()
+        
+        while True:
+            raw_data = conn.recv(1024)
+            if not raw_data:
+                return None
+
+            IAC = b'\xff'
+            if IAC not in raw_data:
+                try:
+                    data_str = raw_data.decode('utf-8').strip()
+                    if data_str: 
+                        return data_str
+                except UnicodeDecodeError:
+                    print("[AVISO] Recebido dado não-UTF8, ignorando.")
+                    conn.sendall(f"\r\n{prompt_text}> ".encode('utf-8'))
+                    continue
+            
+            clean_data = bytearray()
+            i = 0
+            while i < len(raw_data):
+                byte = raw_data[i:i+1]
+                if byte == IAC:
+                    i += 3
+                else:
+                    clean_data.extend(byte)
+                    i += 1
+            
+            if clean_data:
+                try:
+                    data_str = clean_data.decode('utf-8').strip()
+                    if data_str:
+                        return data_str
+                except UnicodeDecodeError:
+                    print("[AVISO] Dado não-UTF8 recebido após limpeza, ignorando.")
+                    conn.sendall(f"\r\n{prompt_text}> ".encode('utf-8'))
+                    continue
+            
+            conn.sendall(f"\r\n{prompt_text}> ".encode('utf-8'))
+            
     except (ConnectionResetError, BrokenPipeError):
         return None
 
