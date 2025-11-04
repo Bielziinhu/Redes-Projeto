@@ -16,6 +16,7 @@ contas = {}
 cpf_para_conta = {}
 conexoes_ativas = {}
 
+#Uso das theads para travar as seções e evitar algo ser corrompido
 contas_lock = threading.Lock()
 conexoes_lock = threading.Lock()
 
@@ -46,6 +47,7 @@ def salvar_contas():
     except Exception as e:
         print(f"[IFBANK] Falha ao salvar contas: {e}")
 
+#Criação da função de log das transações e geração do arquivo/leitura
 def log_transacao(mensagem):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
@@ -54,16 +56,18 @@ def log_transacao(mensagem):
     except Exception as e:
         print(f"[LOGS] Falha ao escrever no log: {e}")
 
+#Sistema de notificação de transferências - Modificar para que não fique sobrescrevendo o menu
 def enviar_notificacao(num_conta_destino, mensagem):
     with conexoes_lock:
         if num_conta_destino in conexoes_ativas:
-            conn_destino = conexoes_ativas[num_conta_destino]
+            cont_destino = conexoes_ativas[num_conta_destino]
             try:
-                conn_destino.sendall(f"\r\n{mensagem}\r\n".encode('utf-8'))
+                cont_destino.sendall(f"\r\n{mensagem}\r\n".encode('utf-8'))
                 print(f"[LOGS] Alerta enviado para conta {num_conta_destino}.")
             except Exception as e:
                 print(f"[LOGS] Falha ao enviar notificação para {num_conta_destino}: {e}")
 
+#Função que recebe o comando do cliente e faz o tratamento para a opção correta
 def processar_comando(comando, num_conta_logada):
     partes = comando.strip().split('|')
     operacao = partes[0].upper()
@@ -92,13 +96,16 @@ def processar_comando(comando, num_conta_logada):
                     print(f"[IFBANK] CPF {cpf} já cadastrado.")
                     return ("[IFBANK] CPF já cadastrado.", estado_retorno, notificacao)
                 
+                #Implementação da lógica do número da conta, atualmente começa em 100
                 num_conta = str(len(contas) + 100)
                 contas[num_conta] = {"nome": nome, "cpf": cpf, "senha": senha, "saldo": 0.0}
                 cpf_para_conta[cpf] = num_conta
+                #Logo após criar a conta ele já salva para evitar que quem está no sistema não receba a informação
                 salvar_contas()
                 
                 print(f"[IFBANK] Conta {num_conta} criada para {nome} (CPF: {cpf[:3]}.***.{cpf[-3:]})")
-                log_transacao(f"CONTA_CRIADA: Conta {num_conta}, Nome: {nome}, CPF: {cpf[:3]}.***.{cpf[-3:]}")
+                #Log que irá retornar no arquivo
+                log_transacao(f"CONTA_CRIADA: Conta {num_conta}, Nome: {nome}, CPF: {cpf}")
                 return (f"[IFBANK] Conta {num_conta} criada para {nome}.", estado_retorno, notificacao)
             
             except IndexError: #Caso falte algum campo no comando
@@ -116,7 +123,7 @@ def processar_comando(comando, num_conta_logada):
                     return ("[IFBANK] Formato de CPF inválido. Use apenas números.", estado_retorno, notificacao)
 
                 if cpf not in cpf_para_conta:
-                    print(f"[IFBANK] CPF não encontrado: {cpf[:3]}.***")
+                    print(f"[IFBANK] CPF {cpf} não encontrado.")
                     return ("[IFBANK] CPF ou senha incorretos.", estado_retorno, notificacao)
                 
                 num_conta = cpf_para_conta[cpf]
@@ -131,7 +138,7 @@ def processar_comando(comando, num_conta_logada):
                     nome = contas[num_conta]["nome"]
                     estado_retorno = ("LOGIN", num_conta, nome)
                     print(f"[IFBANK] Usuário {nome} (Conta: {num_conta}) logou.")
-                    return (f"[IFBANK]|{nome}|{num_conta}", estado_retorno, notificacao)
+                    return (f"[IFBANK] | {nome} C:{num_conta}", estado_retorno, notificacao)
                 else:
                     #Faz uma pequena modificação para mostrar que o CPF está sendo censurado
                     print(f"[IFBANK] Senha incorreta para CPF {cpf[:3]}.***")
@@ -187,7 +194,7 @@ def processar_comando(comando, num_conta_logada):
                 salvar_contas()
                 log_transacao(f"SAQUE: Sucesso - Conta {num_conta_logada}, Valor: {valor:.2f}, Saldo Novo: {saldo_atual:.2f}")
                 print(f"[IFBANK] Conta {num_conta_logada} sacou R$ {valor:.2f}.")
-                return (f"[SUCIFBANKESSO] Saque de R$ {valor:.2f} realizado. Novo saldo: R$ {saldo_atual:.2f}", estado_retorno, notificacao)
+                return (f"[IFBANK] Saque de R$ {valor:.2f} realizado. Novo saldo: R$ {saldo_atual:.2f}", estado_retorno, notificacao)
             
             elif operacao == "TRANSFERIR":
                 #Validações da senha também são feitas aqui, junto com numeros validos
@@ -227,13 +234,13 @@ def processar_comando(comando, num_conta_logada):
                 log_transacao(f"TRANSFERENCIA: Sucesso - R$ {valor:.2f} de C:{num_conta_logada} ({nome_origem}) para C:{c_destino} ({nome_destino})")
 
                 #Alerta que será enviado na tela do usuario
-                mensagem_notificacao = f"[IFBANK] Você recebeu uma transferência de {nome_origem} (Conta: {num_conta_logada}) no valor de R$ {valor:.2f}."
+                mensagem_notificacao = f"\n[IFBANK] Você recebeu uma transferência de {nome_origem} (Conta: {num_conta_logada}) no valor de R$ {valor:.2f}."
                 notificacao = (c_destino, mensagem_notificacao)
                 
                 return (f"[IFBANK] Transferência de R$ {valor:.2f} para {nome_destino} (Conta: {c_destino}) realizada.", estado_retorno, notificacao)
             
-            elif operacao == "LOGOUT":
-                estado_retorno = ("LOGOUT", None, None)
+            elif operacao == "SAIR":
+                estado_retorno = ("SAIR", None, None)
                 print(f"[IFBANK] Usuário {contas[num_conta_logada]['nome']} (Conta: {num_conta_logada}) deslogou.")
                 return ("[IFBANK] Você saiu da sua conta.", estado_retorno, notificacao)
 
@@ -244,10 +251,12 @@ def processar_comando(comando, num_conta_logada):
             print(f"[ERRO] {e}")
             return (f"[FALHA] Erro inesperado no servidor: {e}", estado_retorno, notificacao)
 
-#Funcao de comunicação do telnet - Modificado para utilizar outro sistema telnet
+#Funcao de comunicação do telnet - Modificado para utilizar outro sistema telnet (PuTTY)
+#ANOT - Verificar o retorno do erro ao conectar a rede (não afeta o sistema)
 def receber_input(conn, prompt_text=""):
     try:
-        conn.sendall(f"\r\n{prompt_text}> ".encode('utf-8'))
+        #Uso do encoding utf-8 para suportar caracteres especiais
+        conn.sendall(f"\r\n{prompt_text} ".encode('utf-8'))
         
         while True:
             raw_data = conn.recv(1024)
@@ -282,10 +291,10 @@ def receber_input(conn, prompt_text=""):
                         return data_str
                 except UnicodeDecodeError:
                     print("[AVISO] Dado não-UTF8 recebido após limpeza, ignorando.")
-                    conn.sendall(f"\r\n{prompt_text}> ".encode('utf-8'))
+                    conn.sendall(f"\r\n{prompt_text} ".encode('utf-8'))
                     continue
             
-            conn.sendall(f"\r\n{prompt_text}> ".encode('utf-8'))
+            conn.sendall(f"\r\n{prompt_text} ".encode('utf-8'))
             
     except (ConnectionResetError, BrokenPipeError):
         return None
@@ -307,6 +316,7 @@ def handle_client(conn, addr):
                 "\r\n1. Acessar minha Conta" +
                 "\r\n2. Criar nova Conta" +
                 "\r\n3. Sair do Aplicativo"
+                #Adicionar opção ADM: Ver contas conectadas, contas criadas, transações, deletar/criar, etc
             )
             escolha = receber_input(conn, menu_principal_texto)
 
@@ -329,12 +339,12 @@ def handle_client(conn, addr):
 
                     while True:
                         menu_logado_texto = (
-                            f"\r\n--- IFBank | Olá, {nome_logado} (Conta: {num_conta_logada}) ---" +
+                            f"\r\n--- IFBank | Olá, {nome_logado} (N. Conta: {num_conta_logada}) ---" +
                             "\r\n1. Ver Saldo" +
                             "\r\n2. Depositar" +
                             "\r\n3. Sacar" +
                             "\r\n4. Transferir" +
-                            "\r\n5. Sair da Conta (Logout)"
+                            "\r\n5. Sair da Conta"
                         )
                         escolha_logado = receber_input(conn, menu_logado_texto)
                         
@@ -371,7 +381,7 @@ def handle_client(conn, addr):
                                 enviar_notificacao(notificacao[0], notificacao[1])
 
                         elif escolha_logado == '5':
-                            comando_logado = "LOGOUT"
+                            comando_logado = "SAIR"
                             resposta, _, _ = processar_comando(comando_logado, num_conta_logada)
                             conn.sendall(f"\r\n{resposta}\r\n".encode('utf-8'))
                             break
@@ -420,7 +430,7 @@ def handle_client(conn, addr):
             with conexoes_lock:
                 if num_conta_logada in conexoes_ativas:
                     del conexoes_ativas[num_conta_logada]
-                    print(f"[IFBANK] Conexão ativa de {nome_logado} (C:{num_conta_logada}) removida.")
+                    print(f"[IFBANK] Conexão ativa de {nome_logado} (C:{num_conta_logada}) foi deslogada.")
         conn.close()
         print(f"Encerrando {addr}.")
 
